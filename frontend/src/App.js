@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { FiSend, FiPlus } from "react-icons/fi";
+import { FiSend, FiPlus, FiMenu } from "react-icons/fi";
 import { RiRobot2Line, RiUser3Line } from "react-icons/ri";
 import axios from "axios";
 import { API_BASE_URL } from "./config";
@@ -10,14 +10,43 @@ function App() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [currentChatId, setCurrentChatId] = useState(null);
   const chatContainerRef = useRef(null);
   const textareaRef = useRef(null);
+
+  // Create a new chat
+  const newChat = () => {
+    if (messages.length > 0) {
+      // Save current chat to history before creating new one
+      const newHistoryItem = {
+        id: Date.now(),
+        title: messages[0].text.substring(0, 30) + (messages[0].text.length > 30 ? "..." : ""),
+        messages: [...messages]
+      };
+      setChatHistory(prev => [newHistoryItem, ...prev]);
+    }
+    setMessages([]);
+    setCurrentChatId(null);
+    setSidebarVisible(false);
+  };
+
+  // Load a chat from history
+  const loadChat = (chatId) => {
+    const chat = chatHistory.find(item => item.id === chatId);
+    if (chat) {
+      setMessages(chat.messages);
+      setCurrentChatId(chatId);
+      setSidebarVisible(false);
+    }
+  };
 
   const handleSend = async () => {
     if (input.trim() === "" || loading) return;
     
     const userMessage = { sender: "user", text: input };
-    setMessages(prev => [...prev, userMessage]);
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setInput("");
     setLoading(true);
     
@@ -32,6 +61,15 @@ function App() {
       };
 
       setMessages(prev => [...prev, aiMessage]);
+      
+      // Update chat title if this is the first message
+      if (newMessages.length === 1 && currentChatId) {
+        setChatHistory(prev => prev.map(item => 
+          item.id === currentChatId 
+            ? {...item, title: input.substring(0, 30) + (input.length > 30 ? "..." : "")}
+            : item
+        ));
+      }
     } catch (error) {
       setMessages(prev => [
         ...prev,
@@ -49,12 +87,6 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-    }
-  }, [messages, loading]);
-
   const adjustTextareaHeight = () => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -69,16 +101,52 @@ function App() {
     adjustTextareaHeight();
   }, [input]);
 
+  // Save chat when messages change and we don't have a current chat ID
+  useEffect(() => {
+    if (messages.length > 0 && !currentChatId) {
+      const newChatId = Date.now();
+      setCurrentChatId(newChatId);
+      setChatHistory(prev => [{
+        id: newChatId,
+        title: messages[0].text.substring(0, 30) + (messages[0].text.length > 30 ? "..." : ""),
+        messages: [...messages]
+      }, ...prev]);
+    }
+  }, [messages, currentChatId]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages, loading]);
+
   return (
     <div className="app-container">
+      {/* Mobile menu button */}
+      <button 
+        className="mobile-menu-button"
+        onClick={() => setSidebarVisible(!sidebarVisible)}
+      >
+        <FiMenu />
+      </button>
+
       {/* Sidebar */}
       <div className={`sidebar ${sidebarVisible ? "sidebar-visible" : ""}`}>
-        <div className="sidebar-header" onClick={() => setMessages([])}>
+        <div className="sidebar-header" onClick={newChat}>
           <FiPlus className="new-chat-icon" />
           <span>New chat</span>
         </div>
         <div className="sidebar-history">
-          {/* History items would go here */}
+          {chatHistory.map(chat => (
+            <div 
+              key={chat.id}
+              className={`history-item ${currentChatId === chat.id ? 'active-chat' : ''}`}
+              onClick={() => loadChat(chat.id)}
+            >
+              {chat.title}
+            </div>
+          ))}
         </div>
         <div className="sidebar-footer">
           <div className="user-profile">
