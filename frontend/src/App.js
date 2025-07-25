@@ -29,7 +29,7 @@ function App() {
     } catch (error) {
       setMessages((prev) => [
         ...prev,
-        { sender: "gemini", text: "❌ Error: Could not reach Gemini API." },
+        { sender: "gemini", text: "❌ Error: Could not reach Gemini API. Please try again later." },
       ]);
     } finally {
       setLoading(false);
@@ -46,8 +46,7 @@ function App() {
   return (
     <div className="chat-container">
       <div className="chat-box" ref={chatRef}>
-        <ChatBox messages={messages} />
-        {loading && <div className="typing">Gemini is typing...</div>}
+        <ChatBox messages={messages} loading={loading} />
       </div>
       <ChatInput onSend={handleSend} />
     </div>
